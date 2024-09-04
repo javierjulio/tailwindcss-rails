@@ -74,22 +74,31 @@ module Tailwindcss
       end
 
       def compile_command(debug: false, **kwargs)
-        tailwind_config_template = ERB.new(File.read(Rails.root.join("config/tailwind.config.js")))
-        tailwind_config = Tempfile.new("tailwind-config").tap do |f|
-          f.write(tailwind_config_template.result)
-          if debug
-            f.rewind
-            puts "config:"
-            puts f.read
-          end
-          f.close
-        end
+        tailwind_config_contents = File.read(Rails.root.join("config/tailwind.config.js"))
+        config_path = if tailwind_config_contents.include?('content: []')
+                        tailwind_config_contents.gsub!('content: []','content: <%= Tailwindcss::Engine.globs.to_json %>')
+
+                        tailwind_config_template = ERB.new(tailwind_config_contents)
+                        tailwind_config = Tempfile.new("tailwind-config").tap do |f|
+                          f.write(tailwind_config_template.result)
+                          if debug
+                            f.rewind
+                            puts "config:"
+                            puts f.read
+                          end
+                          f.close
+                        end
+                        tailwind_config.path
+                      else
+                        puts "WARNING: not empty content config found in config/tailwind.config.js, keeping it as-is"
+                        Rails.root.join("config/tailwind.config.js").to_s
+                      end
 
         command = [
           executable(**kwargs),
           "-i", Rails.root.join("app/assets/stylesheets/application.tailwind.css").to_s,
           "-o", Rails.root.join("app/assets/builds/tailwind.css").to_s,
-          "-c", tailwind_config.path,
+          "-c", config_path,
         ]
 
         command << "--minify" unless (debug || rails_css_compressor?)
