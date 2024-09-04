@@ -74,7 +74,9 @@ module Tailwindcss
       end
 
       def compile_command(debug: false, **kwargs)
-        tailwind_config_template = ERB.new(File.read(Rails.root.join("config/tailwind.config.js")))
+        tailwind_config_contents = File.read(Rails.root.join("config/tailwind.config.js"))
+        tailwind_config_contents.gsub!(/content:\s*(\[[\s\S]*?\]|\{[\s\S]*?}|\([^)]*\))/,'content: <%= Tailwindcss::Engine.globs.to_json %>')
+        tailwind_config_template = ERB.new(tailwind_config_contents)
         tailwind_config = Tempfile.new("tailwind-config").tap do |f|
           f.write(tailwind_config_template.result)
           if debug
